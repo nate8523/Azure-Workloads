@@ -34,6 +34,13 @@ resource "random_password" "VeeamBR-V12-password" {
   special     = true
 }
 
+# Output the generated password
+output "VeeamBR-V12-admin-password" {
+  value       = random_password.VeeamBR-V12-password.result
+  description = "The generated VM Administrator password for Veeam BR v12"
+  sensitive   = true
+}
+
 # Create a resource group
 resource "azurerm_resource_group" "VeeamBR-V12-RG" {
   name     = "${var.ResourcePrefix}-RG-01"

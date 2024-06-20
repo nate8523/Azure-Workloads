@@ -1,16 +1,15 @@
-# Function to get unused drive letters starting from F
-function Get-UnusedDriveLetters {
+# Function to get the first unused drive letter starting from F
+function Get-FirstUnusedDriveLetter {
     $usedDriveLetters = Get-Partition | Where-Object { $_.DriveLetter } | Select-Object -ExpandProperty DriveLetter
     $alphabet = "FGHIJKLMNOPQRSTUVWXYZ"  # Start from F and skip A to E
 
-    $availableDriveLetters = $alphabet -split "" | Where-Object { $usedDriveLetters -notcontains $_ }
-
-    # If there are no available drive letters from F to Z, wrap around and start from F again
-    if ($availableDriveLetters.Count -eq 0) {
-        $availableDriveLetters = $alphabet -split ""
+    foreach ($letter in $alphabet.ToCharArray()) {
+        if ($usedDriveLetters -notcontains $letter) {
+            return $letter
+        }
     }
 
-    return $availableDriveLetters
+    return $null  # No available drive letters
 }
 
 # Initialize all uninitialized disks
@@ -21,13 +20,12 @@ $onlineDisksWithoutDriveLetter = Get-Disk | Where-Object { $_.PartitionStyle -eq
 
 # Assign drive letters starting from F to online disks without a drive letter and add them as backup repositories
 foreach ($disk in $onlineDisksWithoutDriveLetter) {
-    $driveLetter = Get-UnusedDriveLetters
+    $driveLetter = Get-FirstUnusedDriveLetter
     if (-not $driveLetter) {
         Write-Host "No available drive letters for disk $($disk.Number). Skipping..."
         continue
     }
-    #$size = ($disk | Get-PartitionSupportedSize).SizeMax # Removed from run
-    $partition = $disk | New-Partition -AssignDriveLetter -UseMaximumSize  # AssignDriveLetter will automatically assign the next available drive letter
+    $partition = $disk | New-Partition -AssignDriveLetter -UseMaximumSize  # Assigns the next available drive letter
     $partition | Format-Volume -FileSystem ReFS -AllocationUnitSize 64KB -Confirm:$false
 }
 
@@ -42,6 +40,10 @@ $Server = Get-VBRServer -Name $hostname
 $initializedDisks = Get-Disk | Where-Object { $_.PartitionStyle -eq 'GPT' -and $_.IsOffline -eq $false }
 foreach ($disk in $initializedDisks) {
     $driveLetter = Get-Partition -DiskNumber $disk.Number | Where-Object { $_.DriveLetter } | Select-Object -ExpandProperty DriveLetter
-    $folderPath = $driveLetter + ":\"
-    Add-VBRBackupRepository -Name "Local Backups $folderpath" -Server $Server -Folder $folderPath -Type WinLocal
+    if ($driveLetter) {
+        $folderPath = $driveLetter + ":\"
+        Add-VBRBackupRepository -Name "Local Backups $folderPath" -Server $Server -Folder $folderPath -Type WinLocal
+    } else {
+        Write-Host "No drive letter found for disk $($disk.Number). Skipping..."
+    }
 }
