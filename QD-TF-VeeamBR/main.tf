@@ -228,6 +228,6 @@ resource "azurerm_virtual_machine_extension" "data_disks" {
 SETTINGS
 
   protected_settings = jsonencode({
-    "fileUris" : ["https://raw.githubusercontent.com/nate8523/Azure-Workloads/main/Customise-Veeam-Backupv2.ps1"]
+    "fileUris" : ["https://raw.githubusercontent.com/nate8523/Azure-Workloads/main/QD-TF-VeeamBR/Customise-Veeam-Backupv2.ps1"]
   })
 }
