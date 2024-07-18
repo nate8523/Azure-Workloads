@@ -175,7 +175,6 @@ resource "random_id" "randomId" {
 
   byte_length = 8
 }
-
 resource "azurerm_storage_account" "fortiGate_storageaccount" {
   name                     = "diag${random_id.randomId.hex}"
   resource_group_name      = azurerm_resource_group.fortigate_resource_group.name
@@ -186,7 +185,6 @@ resource "azurerm_storage_account" "fortiGate_storageaccount" {
 
   tags = var.tags
 }
-
 # Create Firewall VM
 resource "azurerm_virtual_machine" "fortiGate_vm" {
   zones                        = [1]
@@ -252,19 +250,36 @@ resource "azurerm_virtual_machine" "fortiGate_vm" {
 
   tags = var.tags
 }
-
-output "ResourceGroup" {
-  value = azurerm_resource_group.fortigate_resource_group.name
+#
+resource "azurerm_route_table" "internal" {
+  depends_on          = [azurerm_virtual_machine.fortiGate_vm]
+  name                = "QD-RT-${var.customerNamePrefix}-Internal-${var.customerInstanceNo}"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.fortigate_resource_group.name
 }
 
+resource "azurerm_route" "default" {
+  name                   = "QD-RT-${var.customerNamePrefix}-Default-${var.customerInstanceNo}"
+  resource_group_name    = azurerm_resource_group.fortigate_resource_group.name
+  route_table_name       = azurerm_route_table.internal.name
+  address_prefix         = "0.0.0.0/0"
+  next_hop_type          = "VirtualAppliance"
+  next_hop_in_ip_address = azurerm_network_interface.fortiGate_port2_internal.private_ip_address
+}
+
+resource "azurerm_subnet_route_table_association" "internalassociate" {
+  depends_on     = [azurerm_route_table.internal]
+  subnet_id      = azurerm_subnet.internal_subnet.id
+  route_table_id = azurerm_route_table.internal.id
+}
+
+# Output Connection Details
 output "Fortigate_PublicIP" {
   value = format("https://%s", azurerm_public_ip.fortigate.ip_address)
 }
-
 output "Username" {
   value = var.adminusername
 }
-
 output "Password" {
   value = var.adminpassword
 }
